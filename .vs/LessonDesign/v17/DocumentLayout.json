@@ -1,0 +1,41 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "H:\\Projects\\LessonDesign\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{DAA87BEB-B8D0-4463-9C67-6DF425A01854}|LessonDesign\\LessonDesign.vcxproj|H:\\Projects\\LessonDesign\\LessonDesign\\main.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{DAA87BEB-B8D0-4463-9C67-6DF425A01854}|LessonDesign\\LessonDesign.vcxproj|solutionrelative:LessonDesign\\main.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 1,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedHeight": 250,
+          "SelectedChildIndex": 1,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{34e76e81-ee4a-11d0-ae2e-00a0c90fffc3}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "main.cpp",
+              "DocumentMoniker": "H:\\Projects\\LessonDesign\\LessonDesign\\main.cpp",
+              "RelativeDocumentMoniker": "LessonDesign\\main.cpp",
+              "ToolTip": "H:\\Projects\\LessonDesign\\LessonDesign\\main.cpp",
+              "RelativeToolTip": "LessonDesign\\main.cpp",
+              "ViewState": "AgIAAFcAAAAAAAAAAAAAAIUAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2025-06-30T06:22:49.204Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
