@@ -1,4 +1,4 @@
 ﻿  main.cpp
-H:\Projects\LessonDesign\LessonDesign\main.cpp(176,18): warning C4244: “=”: 从“double”转换到“LONG”，可能丢失数据
-H:\Projects\LessonDesign\LessonDesign\main.cpp(178,18): warning C4244: “=”: 从“double”转换到“LONG”，可能丢失数据
+H:\Projects\LessonDesign\LessonDesign\main.cpp(325,18): warning C4244: “=”: 从“double”转换到“LONG”，可能丢失数据
+H:\Projects\LessonDesign\LessonDesign\main.cpp(327,18): warning C4244: “=”: 从“double”转换到“LONG”，可能丢失数据
   LessonDesign.vcxproj -> H:\Projects\LessonDesign\x64\Debug\LessonDesign.exe

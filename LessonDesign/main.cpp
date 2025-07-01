@@ -2,8 +2,12 @@
 #include <iostream>
 #include <vector>
 #include <Windows.h>
+#include <mmsystem.h> 
+#pragma comment(lib, "winmm.lib")  
 #pragma comment(lib, "msimg32.lib")  // 链接库
+#pragma comment(lib,"MSIMG32.LIB")
 #include <string>
+
 using namespace std;
 
 
@@ -19,9 +23,15 @@ const int PLAYER_WIDTH = 80; // 玩家宽度
 const int PLAYER_HEIGHT = 80; // 玩家高度
 const int SHADOW_WIDTH = 32; // 阴影宽度
 
+const int BUTTON_WIDTH = 192;
+const int BUTTON_HEIGHT = 75; // 按钮高度
+
 IMAGE img_player_left[PLAYER_ANIM_NUM];
 IMAGE img_player_right[PLAYER_ANIM_NUM];
 IMAGE img_shadow;
+
+bool is_game_started = false;
+bool running = true;
 
 
 
@@ -34,51 +44,190 @@ inline void putimage_alpha(int x, int y, IMAGE* img)
 		GetImageHDC(img), 0, 0, w, h, { AC_SRC_OVER,0,255,AC_SRC_ALPHA });
 }
 
-class Animation
+
+
+class Atlas
 {
 public:
-	Animation(LPCTSTR path, int num, int interval)
+	Atlas(LPCTSTR path, int num)
 	{
-		interval_ms = interval;// 帧间隔时间
-
 		TCHAR path_file[256];
 		for (size_t i = 0; i < num; i++)
 		{
 			swprintf_s(path_file, path, i);
-
 			IMAGE* frame = new IMAGE(); // 创建新的IMAGE对象
 			loadimage(frame, path_file);
 			frame_list.push_back(frame); // 将每一帧的图片加载到列表中
 		}
 	}
-
-	~Animation()
+	~Atlas()
 	{
 		for (size_t i = 0; i < frame_list.size(); i++)
 		{
 			delete frame_list[i]; // 释放每一帧的图片资源
 		}
 	}
+public:
+	std::vector<IMAGE*> frame_list; // 存储动画帧
+};
+
+Atlas* atlas_player_left;
+Atlas* atlas_player_right; // 玩家向右移动动画资源
+Atlas* atlas_enemy_left;
+Atlas* atlas_enemy_right; // 敌人向右移动动画资源
+
+class Button
+{
+public:
+	Button(RECT rect, LPCTSTR path_img_idle, LPCTSTR path_img_hovered, LPCTSTR path_img_pushed)
+	{
+		region = rect; // 设置按钮区域
+
+		loadimage(&img_idle, path_img_idle); // 加载空闲状态图片
+		loadimage(&img_hovered, path_img_hovered); // 加载悬停状态图片
+		loadimage(&img_pushed, path_img_pushed); // 加载悬停状态图片
+	}
+
+	~Button() = default;
+
+	void ProcessEvent(const ExMessage& msg)
+	{
+		switch (msg.message)
+		{
+		case WM_MOUSEMOVE:
+			if (status == Status::Idle && CheckCursorHit(msg.x, msg.y)) // 如果鼠标悬停在按钮上
+			{
+				status = Status::Hovered; // 切换到悬停状态
+			}
+			else if (status == Status::Hovered && !CheckCursorHit(msg.x, msg.y)) // 如果鼠标离开按钮区域
+			{
+				status = Status::Idle; // 切换回空闲状态
+			}
+			break;
+		case WM_LBUTTONDOWN:
+			if (CheckCursorHit(msg.x, msg.y)) // 如果鼠标点击在按钮区域
+			{
+				status = Status::Pushed; // 切换到按下状态
+			}
+			break;
+		case WM_LBUTTONUP:
+			if (status == Status::Pushed) // 如果鼠标在按钮区域内释放
+				OnClick();
+			break;
+		default:
+			break;	
+		}
+	}
+
+	void Draw()
+	{
+		switch (status)
+		{
+		case Status::Idle: // 空闲状态
+			putimage(region.left, region.top, &img_idle);
+			break;
+		case Status::Hovered: // 悬停状态
+			putimage(region.left, region.top, &img_hovered);
+			break;
+		case Status::Pushed: // 按下状态
+			putimage(region.left, region.top, &img_pushed);
+			break;
+		}
+	}
+
+protected:
+	virtual void OnClick() = 0;// 按钮点击事件处理函数
+
+private:
+	enum class Status
+	{
+		Idle = 0, // 空闲状态
+		Hovered,
+		Pushed
+	};
+
+	
+
+private:
+	RECT region;
+	IMAGE img_idle; // 空闲状态图片
+	IMAGE img_hovered; // 悬停状态图片
+	IMAGE img_pushed; // 按下状态图片
+	Status status = Status::Idle; // 按钮当前状态
+
+private:
+	bool CheckCursorHit(int x, int y)
+	{
+		return x >= region.left && x <= region.right &&
+			y >= region.top && y <= region.bottom; // 检查鼠标是否在按钮区域内
+	}
+};
+
+class StartGameButton :public Button
+{
+public:
+	StartGameButton(RECT rect, LPCTSTR path_img_idle, LPCTSTR path_img_hovered, LPCTSTR path_img_pushed)
+		: Button(rect, path_img_idle, path_img_hovered, path_img_pushed)
+	{
+	}
+	~StartGameButton() = default;
+
+protected:
+	void OnClick() override
+	{
+		is_game_started = true;
+		mciSendString(_T("play bgm repeat from 0"), NULL, 0, NULL); // 播放开始游戏音效
+	}
+};
+
+class QuitGameButton :public Button
+{
+public:
+	QuitGameButton(RECT rect, LPCTSTR path_img_idle, LPCTSTR path_img_hovered, LPCTSTR path_img_pushed)
+		: Button(rect, path_img_idle, path_img_hovered, path_img_pushed)
+	{
+	}
+	~QuitGameButton() = default;
+
+protected:
+	void OnClick() override
+	{
+		running = false;
+	}
+};
+
+
+class Animation
+{
+public:
+	Animation(Atlas* atlas, int interval)
+	{
+		anim_atlas = atlas; // 设置动画资源
+		interval_ms = interval; // 设置帧间隔时间
+		
+	}
+
+	~Animation() = default;
 
 	void Play(int x, int y, int delta)
 	{
 		timer += delta + 3;
-		//cout << "timer：" << timer << endl; // 输出计时器值
 		if (timer >= interval_ms) // 如果计时器超过帧间隔时间
 		{
 			timer = 0; // 重置计时器
-			idx_frame = (idx_frame + 1) % frame_list.size(); // 切换到下一帧
-			//cout << "idx_frame: " << idx_frame << endl; // 输出当前帧索引
+			idx_frame = (idx_frame + 1) % anim_atlas->frame_list.size(); // 切换到下一帧
 		}
 
-		putimage_alpha(x, y, frame_list[idx_frame]); // 绘制当前帧
+		putimage_alpha(x, y, anim_atlas->frame_list[idx_frame]); // 绘制当前帧
 	}
 
 private:
 	int interval_ms = 0; // 帧间隔时间
 	int idx_frame = 0; // 当前帧索引
 	int timer = 0; // 计时器，用于控制动画播放速度
-	vector<IMAGE*> frame_list; // 存储动画帧>
+
+private:
+	Atlas* anim_atlas;
 };
 
 class Bullet
@@ -105,8 +254,8 @@ public:
 	Player()
 	{
 		loadimage(&img_shadow, _T("./img/shadow_player.png"),32,20); // 加载敌人阴影图片
-		anim_left = new Animation(_T("./img/player_left_%d.png"), 6, 45);
-		anim_right = new Animation(_T("./img/player_right_%d.png"), 6, 45);
+		anim_left = new Animation(atlas_player_left,45);
+		anim_right = new Animation(atlas_player_right, 45);
 	}
 
 	~Player()
@@ -229,14 +378,15 @@ private:
 
 
 };
+
 class Enemy
 {
 public:
 	Enemy()
 	{
 		loadimage(&img_shadow, _T("./img/shadow_enemy.png")); // 加载敌人阴影图片
-		anim_left = new Animation(_T("./img/enemy_left_%d.png"), 6, 45); // 敌人向左移动动画
-		anim_right = new Animation(_T("./img/enemy_right_%d.png"), 6, 45); // 敌人向右移动动画
+		anim_left = new Animation(atlas_enemy_left, 45); // 敌人向左移动动画
+		anim_right = new Animation(atlas_enemy_right, 45); // 敌人向右移动动画
 
 		enum class SpawnEdge
 		{
@@ -358,13 +508,38 @@ int main()
 
 	initgraph(WINDOW_WIDTH, WINDOW_HEIGHT);
 
-	bool running = true;
+	atlas_enemy_left = new Atlas(_T("./img/enemy_left_%d.png"), 6); // 加载敌人向左移动动画资源
+	atlas_enemy_right = new Atlas(_T("./img/enemy_right_%d.png"), 6); // 加载敌人向右移动动画资源
+	atlas_player_left = new Atlas(_T("./img/player_left_%d.png"), PLAYER_ANIM_NUM); // 加载玩家向左移动动画资源
+	atlas_player_right = new Atlas(_T("./img/player_right_%d.png"), PLAYER_ANIM_NUM); // 加载玩家向右移动动画资源
+
+	mciSendString(_T("open mus/hit.wav alias hit"), NULL, 0, NULL); // 打开背景音乐
+	mciSendString(_T("open mus/bgm.mp3 alias bgm"), NULL, 0, NULL); // 打开背景音乐
+
+	
 
 	Player player;
 	ExMessage msg;
 	IMAGE img_background;
+	IMAGE img_menu; // 菜单图片
 	std::vector<Enemy*> enemy_list;
 
+	RECT region_btn_start_game, region_btn_quit_game;
+
+	region_btn_start_game.left = (WINDOW_WIDTH - BUTTON_WIDTH) / 2; // 开始游戏按钮区域
+	region_btn_start_game.right = region_btn_start_game.left + BUTTON_WIDTH;
+	region_btn_start_game.top = 430; // 开始游戏按钮区域
+	region_btn_start_game.bottom = region_btn_start_game.top + BUTTON_HEIGHT;
+	
+	region_btn_quit_game.left = (WINDOW_WIDTH - BUTTON_WIDTH) / 2; // 开始游戏按钮区域
+	region_btn_quit_game.right = region_btn_quit_game.left + BUTTON_WIDTH;
+	region_btn_quit_game.top = 550; // 开始游戏按钮区域
+	region_btn_quit_game.bottom = region_btn_quit_game.top + BUTTON_HEIGHT;
+
+	StartGameButton btn_start_game(region_btn_start_game, _T("./img/ui_start_idle.png"), _T("./img/ui_start_hovered.png"), _T("./img/ui_start_pushed.png"));
+	QuitGameButton btn_quit_game(region_btn_quit_game, _T("./img/ui_quit_idle.png"), _T("./img/ui_quit_hovered.png"), _T("./img/ui_quit_pushed.png"));
+
+	loadimage(&img_menu, _T("img/menu.png"));
 	loadimage(&img_background, _T("./img/background.png"), 1280, 720);
 
 	BeginBatchDraw();
@@ -374,12 +549,17 @@ int main()
 		DWORD start_time = GetTickCount();
 	/************************************************************************
 
-		消息处理
+		事件处理
 
 	*************************************************************************/
 		while (peekmessage(&msg))
 		{
-			player.ProcessEvent(msg);
+			if(is_game_started)
+				player.ProcessEvent(msg); // 处理玩家事件
+			else {
+				btn_start_game.ProcessEvent(msg); // 处理开始游戏按钮事件
+				btn_quit_game.ProcessEvent(msg); // 处理退出游戏按钮事件
+			}
 
 		}
 	/************************************************************************
@@ -387,19 +567,21 @@ int main()
 		数据处理
 
 	*************************************************************************/
-
-		TryGenerateEnemy(enemy_list); // 尝试生成敌人
-		for (Enemy* enemy : enemy_list) enemy->Move(player);
-
-		player.Move();
-
-		DWORD end_time = GetTickCount();
-
-		DWORD delta_time = end_time - start_time;
-
-		if (delta_time < 1000 / 144)
+		if(is_game_started)
 		{
-			Sleep(1000 / 144 - delta_time);
+			TryGenerateEnemy(enemy_list); // 尝试生成敌人
+			for (Enemy* enemy : enemy_list) enemy->Move(player);
+
+			player.Move();
+
+			DWORD end_time = GetTickCount();
+
+			DWORD delta_time = end_time - start_time;
+
+			if (delta_time < 1000 / 144)
+			{
+				Sleep(1000 / 144 - delta_time);
+			}
 		}
 
 	/************************************************************************
@@ -414,17 +596,34 @@ int main()
 
 		cleardevice();
 
+		if(is_game_started)
+		{
+			putimage(0, 0, &img_background);
 
-		putimage(0, 0, &img_background);
+			player.Draw(1000 / 144);
+			for (Enemy* enemy : enemy_list) enemy->Draw(1000 / 144); // 绘制所有敌人
+		}
+		else
+		{
+			putimage(0, 0, &img_menu); // 绘制菜单背景
+			btn_start_game.Draw(); // 绘制开始游戏按钮
+			btn_quit_game.Draw(); // 绘制退出游戏按钮
+		}
 
-		player.Draw(1000 / 144);
-		for (Enemy* enemy : enemy_list) enemy->Draw(1000 / 144); // 绘制所有敌人
+
 
 		FlushBatchDraw();
 
 
 	}
 
+	delete atlas_enemy_left;
+	delete atlas_enemy_right; // 释放敌人向右移动动画资源
+	delete atlas_player_left; // 释放玩家向左移动动画资源
+	delete atlas_player_right; // 释放玩家向右移动动画资源
+
+
+	EndBatchDraw();
 	return 0;
 
 }
