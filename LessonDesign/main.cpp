@@ -3,8 +3,8 @@
 #include <vector>
 #include <Windows.h>
 #include <mmsystem.h> 
-#pragma comment(lib, "winmm.lib")  
 #pragma comment(lib, "msimg32.lib")  // 链接库
+#pragma comment(lib, "winmm.lib")  
 #pragma comment(lib,"MSIMG32.LIB")
 #include <string>
 
@@ -33,8 +33,6 @@ IMAGE img_shadow;
 bool is_game_started = false;
 bool running = true;
 
-
-
 // 带透明度的图片绘制函数
 inline void putimage_alpha(int x, int y, IMAGE* img)
 {
@@ -43,7 +41,6 @@ inline void putimage_alpha(int x, int y, IMAGE* img)
 	AlphaBlend(GetImageHDC(NULL), x, y, w, h,
 		GetImageHDC(img), 0, 0, w, h, { AC_SRC_OVER,0,255,AC_SRC_ALPHA });
 }
-
 
 
 class Atlas
@@ -115,7 +112,7 @@ public:
 				OnClick();
 			break;
 		default:
-			break;	
+			break;
 		}
 	}
 
@@ -146,7 +143,7 @@ private:
 		Pushed
 	};
 
-	
+
 
 private:
 	RECT region;
@@ -197,6 +194,8 @@ protected:
 };
 
 
+
+
 class Animation
 {
 public:
@@ -204,7 +203,7 @@ public:
 	{
 		anim_atlas = atlas; // 设置动画资源
 		interval_ms = interval; // 设置帧间隔时间
-		
+
 	}
 
 	~Animation() = default;
@@ -230,6 +229,7 @@ private:
 	Atlas* anim_atlas;
 };
 
+
 class Bullet
 {
 public:
@@ -248,13 +248,18 @@ public:
 private:
 	const int  RADIUS = 10; // 子弹半径
 };
+
 class Player
 {
 public:
+	const int FRAME_WIDTH = 80; // 玩家宽度
+	const int FRAME_HEIGHT = 80; // 玩家高度
+
+public:
 	Player()
 	{
-		loadimage(&img_shadow, _T("./img/shadow_player.png"),32,20); // 加载敌人阴影图片
-		anim_left = new Animation(atlas_player_left,45);
+		loadimage(&img_shadow, _T("./img/shadow_player.png"), 32, 20); // 加载敌人阴影图片
+		anim_left = new Animation(atlas_player_left, 45);
 		anim_right = new Animation(atlas_player_right, 45);
 	}
 
@@ -310,6 +315,11 @@ public:
 		}
 	}
 
+	const POINT& GetPosition() const
+	{
+		return position;
+	}
+
 	void Move()
 	{
 		int dir_x = is_move_right - is_move_left; // 计算水平移动方向
@@ -359,18 +369,20 @@ public:
 		//putimage_alpha(pos_shadow_x, pos_shadow_y, &img_shadow); // 绘制阴影
 	}
 
+
+
 private:
 	const int SPEED = 5; // 玩家移动速度
 
-	const int FRAME_WIDTH = 80; // 玩家宽度
-	const int FRAME_HEIGHT = 80; // 玩家高度
+	//const int FRAME_WIDTH = 80; // 玩家宽度
+	//const int FRAME_HEIGHT = 80; // 玩家高度
 	const int SHADOW_WIDTH = 32; // 阴影宽度
 
 private:
 	IMAGE img_shadow;
 	Animation* anim_left;
 	Animation* anim_right;
-	
+
 	bool is_move_up = false;
 	bool is_move_down = false;
 	bool is_move_left = false;
@@ -387,6 +399,7 @@ public:
 		loadimage(&img_shadow, _T("./img/shadow_enemy.png")); // 加载敌人阴影图片
 		anim_left = new Animation(atlas_enemy_left, 45); // 敌人向左移动动画
 		anim_right = new Animation(atlas_enemy_right, 45); // 敌人向右移动动画
+
 
 		enum class SpawnEdge
 		{
@@ -426,15 +439,25 @@ public:
 		delete anim_right; // 释放向右移动动画资源
 	}
 
-	bool CheckBulletCollision(const Bullet& bullet)
+	//敌人与玩家的碰撞逻辑
+	bool CheckPlayerCollision(const Player& player)
 	{
-		return false;
+		POINT check_position = { position.x + FRAME_WIDTH / 2,position.y + FRAME_HEIGHT / 2 };
+		POINT player_position = player.GetPosition();
+
+		bool is_overlap_x = check_position.x >= player_position.x && check_position.x <= player_position.x + player.FRAME_WIDTH;
+		bool is_overlap_y = check_position.y >= player_position.y && check_position.y <= player_position.y + player.FRAME_HEIGHT;
+		return is_overlap_x && is_overlap_y;
 	}
 
-	bool CheckBulletCollision(const Player& player)
+	//子弹与敌人的碰撞逻辑
+	bool CheckBulletCollision(const Bullet& bullet)
 	{
-		return false;
+		bool is_overlap_x = bullet.position.x >= position.x && bullet.position.x <= position.x + FRAME_WIDTH;
+		bool is_overlap_y = bullet.position.y >= position.y && bullet.position.y <= position.y + FRAME_HEIGHT;
+		return is_overlap_x && is_overlap_y;
 	}
+
 
 	void Move(const Player& player)
 	{
@@ -478,6 +501,18 @@ public:
 
 	}
 
+
+	void Hurt()
+	{
+		alive = false;
+	}
+
+	bool CheckAlive()
+	{
+		return alive;
+	}
+
+
 private:
 	int dir_x;
 	int dir_y;
@@ -491,7 +526,14 @@ private:
 	Animation* anim_right; // 敌人向右移动动画
 	POINT position = { 0,0 }; // 敌人位置
 	bool facing_left = false;
+	bool alive = true;
 };
+
+
+
+
+
+
 
 void TryGenerateEnemy(std::vector<Enemy*>& enemy_list)
 {
@@ -501,6 +543,32 @@ void TryGenerateEnemy(std::vector<Enemy*>& enemy_list)
 	{
 		enemy_list.push_back(new Enemy()); // 将新敌人添加到列表中
 	}
+}
+
+void UpdateBullets(std::vector<Bullet>& bullet_list, const Player& player)//更新子弹位置
+{
+	const double RADIAL_SEEED = 0.0045;     // 径向波动速度
+	const double TANGENT_SPEED = 0.0055;    // 切向波动速度
+	double radian_interval = 2 * 3.14159 / bullet_list.size(); // 子弹之间的弧度间距
+	POINT player_position = player.GetPosition();
+	double radius = 100 + 25 * sin(GetTickCount() * RADIAL_SEEED);
+	for (size_t i = 0; i < bullet_list.size(); i++)
+	{
+		double radian = GetTickCount() * TANGENT_SPEED + radian_interval * i;
+		bullet_list[i].position.x = player_position.x + player.FRAME_WIDTH / 2 + (int)(radius * sin(radian));
+		bullet_list[i].position.y = player_position.y + player.FRAME_HEIGHT / 2 + (int)(radius * cos(radian));
+	}
+
+}
+
+void DrawPlayerScore(int score)
+{
+	static TCHAR text[64];
+	_stprintf_s(text, _T("当前玩家得分：%d"), score);
+
+	setbkmode(TRANSPARENT);
+	settextcolor(RGB(255, 85, 185));
+	outtextxy(10, 10, text);
 }
 
 int main()
@@ -516,13 +584,13 @@ int main()
 	mciSendString(_T("open mus/hit.wav alias hit"), NULL, 0, NULL); // 打开背景音乐
 	mciSendString(_T("open mus/bgm.mp3 alias bgm"), NULL, 0, NULL); // 打开背景音乐
 
-	
-
+	int score = 0;
 	Player player;
 	ExMessage msg;
 	IMAGE img_background;
 	IMAGE img_menu; // 菜单图片
 	std::vector<Enemy*> enemy_list;
+	std::vector<Bullet> bullet_list(3);
 
 	RECT region_btn_start_game, region_btn_quit_game;
 
@@ -530,7 +598,7 @@ int main()
 	region_btn_start_game.right = region_btn_start_game.left + BUTTON_WIDTH;
 	region_btn_start_game.top = 430; // 开始游戏按钮区域
 	region_btn_start_game.bottom = region_btn_start_game.top + BUTTON_HEIGHT;
-	
+
 	region_btn_quit_game.left = (WINDOW_WIDTH - BUTTON_WIDTH) / 2; // 开始游戏按钮区域
 	region_btn_quit_game.right = region_btn_quit_game.left + BUTTON_WIDTH;
 	region_btn_quit_game.top = 550; // 开始游戏按钮区域
@@ -540,6 +608,7 @@ int main()
 	QuitGameButton btn_quit_game(region_btn_quit_game, _T("./img/ui_quit_idle.png"), _T("./img/ui_quit_hovered.png"), _T("./img/ui_quit_pushed.png"));
 
 	loadimage(&img_menu, _T("img/menu.png"));
+
 	loadimage(&img_background, _T("./img/background.png"), 1280, 720);
 
 	BeginBatchDraw();
@@ -547,14 +616,14 @@ int main()
 	while (running)
 	{
 		DWORD start_time = GetTickCount();
-	/************************************************************************
+		/************************************************************************
 
-		事件处理
+			消息处理
 
-	*************************************************************************/
+		*************************************************************************/
 		while (peekmessage(&msg))
 		{
-			if(is_game_started)
+			if (is_game_started)
 				player.ProcessEvent(msg); // 处理玩家事件
 			else {
 				btn_start_game.ProcessEvent(msg); // 处理开始游戏按钮事件
@@ -562,17 +631,54 @@ int main()
 			}
 
 		}
-	/************************************************************************
+		/************************************************************************
 
-		数据处理
+			数据处理
 
-	*************************************************************************/
-		if(is_game_started)
+		*************************************************************************/
+		if (is_game_started)
 		{
+			UpdateBullets(bullet_list, player);
 			TryGenerateEnemy(enemy_list); // 尝试生成敌人
 			for (Enemy* enemy : enemy_list) enemy->Move(player);
 
 			player.Move();
+
+
+			for (Enemy* enemy : enemy_list) // 检测敌人和玩家之间的碰撞
+			{
+				if (enemy->CheckPlayerCollision(player))
+				{
+					static TCHAR text[128];
+					_stprintf_s(text, _T("最终得分:%d !"), score);
+					MessageBox(GetHWnd(), text, _T("游戏结束"), MB_OK);
+					running = false;
+					break;
+				}
+			}
+
+			for (Enemy* enemy : enemy_list) // 检测敌人和子弹之间的碰撞
+			{
+				for (const Bullet& bullet : bullet_list)
+				{
+					if (enemy->CheckBulletCollision(bullet))
+					{
+						enemy->Hurt();
+						score++;
+					}
+				}
+			}
+
+			for (size_t i = 0; i < enemy_list.size(); i++) // 移除生命值归零的敌人
+			{
+				Enemy* enemy = enemy_list[i];
+				if (!enemy->CheckAlive())
+				{
+					std::swap(enemy_list[i], enemy_list.back());
+					enemy_list.pop_back();
+					delete enemy;
+				}
+			}
 
 			DWORD end_time = GetTickCount();
 
@@ -583,25 +689,27 @@ int main()
 				Sleep(1000 / 144 - delta_time);
 			}
 		}
+		/************************************************************************
 
-	/************************************************************************
+			渲染画面部分
+			-清除屏幕，绘制背景和玩家
+			-绘制所有敌人
+			-刷新屏幕
+			-如果帧率过低，则等待一段时间以保持稳定的帧率
 
-		渲染画面部分
-		-清除屏幕，绘制背景和玩家
-		-绘制所有敌人
-		-刷新屏幕
-		-如果帧率过低，则等待一段时间以保持稳定的帧率
-
-	*************************************************************************/
+		*************************************************************************/
 
 		cleardevice();
 
-		if(is_game_started)
+
+		if (is_game_started)
 		{
 			putimage(0, 0, &img_background);
 
 			player.Draw(1000 / 144);
 			for (Enemy* enemy : enemy_list) enemy->Draw(1000 / 144); // 绘制所有敌人
+			for (const Bullet& bullet : bullet_list) bullet.Draw(); // 绘制子弹
+			DrawPlayerScore(score);
 		}
 		else
 		{
@@ -609,7 +717,6 @@ int main()
 			btn_start_game.Draw(); // 绘制开始游戏按钮
 			btn_quit_game.Draw(); // 绘制退出游戏按钮
 		}
-
 
 
 		FlushBatchDraw();
@@ -621,9 +728,8 @@ int main()
 	delete atlas_enemy_right; // 释放敌人向右移动动画资源
 	delete atlas_player_left; // 释放玩家向左移动动画资源
 	delete atlas_player_right; // 释放玩家向右移动动画资源
-
-
 	EndBatchDraw();
+
 	return 0;
 
 }
